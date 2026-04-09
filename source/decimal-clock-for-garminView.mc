@@ -10,10 +10,6 @@ import Toybox.Timer;
 
 class decimal_clock_for_garminView extends WatchUi.WatchFace {
 
-    var MONTH_NAMES = [
-        "I","II","III","IV","V","VI",
-        "VII","VIII","IX","X","XI","XII"
-    ];
 
     var _timer as Timer.Timer?;
 
@@ -41,65 +37,35 @@ class decimal_clock_for_garminView extends WatchUi.WatchFace {
         WatchUi.requestUpdate();
     }
 
-    function getAbsoluteDays(d as Number, m as Number, y as Number) as Number {
-        var year  = y;
-        var month = m;
-        if (month <= 2) {
-            year--;
-            month += 12;
-        }
-        return (365.25 * (year + 4716)).toNumber()
-             + (30.6001 * (month + 1)).toNumber()
-             + d - 1524;
-    }
-
-    function isDecimalLeap(decYear as Number) as Boolean {
-        var gYear = decYear - 10000;
-        return (gYear % 4 == 0 && gYear % 100 != 0) || (gYear % 400 == 0);
-    }
-
+    // Returns [dayOfMonth 1-30, monthIndex 0-11] for regular days,
+    // or [bonusIndex 0-4, -1] for the 5 bonus days at year-end.
+    // Calendar: 12 months x 5 weeks x 6 days = 360 days + 5 bonus days.
+    // Synced to Gregorian year: day-of-year 0-359 = months, 360+ = bonus days.
     function getDecimalDate() as Array {
-        var info = Gregorian.info(Time.now(), Time.FORMAT_SHORT);
-
-        var gDay   = info.day;
-        var gMonth = info.month;
+        var info   = Gregorian.info(Time.now(), Time.FORMAT_SHORT);
         var gYear  = info.year;
+        var gMonth = info.month;
+        var gDay   = info.day;
 
-        var todayAbs = getAbsoluteDays(gDay, gMonth, gYear);
-        var syncAbs  = getAbsoluteDays(1, 1, 0);
-        var remaining = todayAbs - syncAbs;
+        // Compute 0-based day-of-year
+        var monthDays = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+        var isLeap = (gYear % 4 == 0 && gYear % 100 != 0) || (gYear % 400 == 0);
+        if (isLeap) { monthDays[1] = 29; }
 
-        var decYear = 10000;
-        if (remaining >= 0) {
-            var running = true;
-            while (running) {
-                var daysInYear = isDecimalLeap(decYear) ? 366 : 365;
-                if (remaining >= daysInYear) {
-                    remaining -= daysInYear;
-                    decYear++;
-                } else {
-                    running = false;
-                }
-            }
-        } else {
-            var running2 = true;
-            while (running2) {
-                decYear--;
-                var daysInYear2 = isDecimalLeap(decYear) ? 366 : 365;
-                remaining += daysInYear2;
-                if (remaining >= 0) {
-                    running2 = false;
-                }
-            }
+        var doy = gDay - 1;
+        for (var i = 0; i < gMonth - 1; i++) {
+            doy += monthDays[i];
         }
 
-        if (remaining < 360) {
-            var mIdx = remaining / 30;
-            var d    = (remaining % 30) + 1;
-            return [d, mIdx];
+        if (doy < 360) {
+            var mIdx   = doy / 30;
+            var dayInM = doy % 30;
+            return [dayInM + 1, mIdx];
         }
-        var extraIdx = remaining - 360;
-        return [extraIdx, -1];
+
+        var bonusIdx = doy - 360;
+        if (bonusIdx > 4) { bonusIdx = 4; }
+        return [bonusIdx, -1];
     }
 
     function censorString(s as String) as String {
@@ -170,7 +136,7 @@ class decimal_clock_for_garminView extends WatchUi.WatchFace {
         // --- 4. מחרוזות טקסט ---
         var dateStr;
         if (decMonth == -1) {
-            var extraNames = ["a", "b", "c", "d", "e", "Tld"];
+            var extraNames = ["Alpha", "Beta", "Gamma", "Delta", "Epsilon"];
             dateStr = extraNames[decDay];
         } else {
             dateStr = censorString(Lang.format("$1$/$2$", [decDay, decMonth + 1]));
