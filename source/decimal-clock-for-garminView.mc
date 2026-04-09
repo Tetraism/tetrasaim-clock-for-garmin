@@ -149,16 +149,18 @@ class decimal_clock_for_garminView extends WatchUi.WatchFace {
         dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_BLACK);
         dc.clear();
 
-        // --- 2. זמן עשרוני ---
+        // --- 2. זמן עשרוני (12 שעות, 144 דקות, 144 שניות) ---
+        // יממה = 12 × 144 × 144 = 248832 יחידות
         var clockTime = System.getClockTime();
         var totalSec  = clockTime.hour.toDouble() * 3600.0
                       + clockTime.min.toDouble()  * 60.0
                       + clockTime.sec.toDouble();
-        var dayPercent = totalSec / 86400.0;
-        var decTotal   = dayPercent * 100000.0;
-        var dHour = (decTotal / 10000.0).toNumber();
-        var dMin  = ((decTotal - dHour.toDouble() * 10000.0) / 100.0).toNumber();
-        var dSec  = (decTotal - dHour.toDouble() * 10000.0 - dMin.toDouble() * 100.0).toNumber();
+        // decTotal = מספר השניות-העשרוניות שחלפו מתחילת היום
+        var decTotal = totalSec * 248832.0 / 86400.0;
+        var dHour = (decTotal / 20736.0).toNumber();                          // 144×144
+        var dMin  = ((decTotal - dHour.toDouble() * 20736.0) / 144.0).toNumber();
+        var dSec  = (decTotal - dHour.toDouble() * 20736.0
+                              - dMin.toDouble()  * 144.0).toNumber();
 
         // --- 3. תאריך עשרוני ---
         var dateArr  = getDecimalDate();
@@ -182,25 +184,27 @@ class decimal_clock_for_garminView extends WatchUi.WatchFace {
 
         var decTimeStr = censorString(Lang.format("$1$:$2$:$3$", [
             dHour,
-            dMin.format("%02d"),
-            dSec.format("%02d")
+            dMin.format("%03d"),
+            dSec.format("%03d")
         ]));
 
         // --- 5. זוויות מחוגים ---
-        var hourAngle = dHour.toDouble() * 36.0 + dMin.toDouble() / 100.0 * 36.0;
-        var minAngle  = dMin.toDouble()  * 3.6  + dSec.toDouble() / 100.0 * 3.6;
+        // שעות: 360°/12 = 30° לשעה; תרומת דקות: 30°/144
+        var hourAngle = dHour.toDouble() * 30.0 + dMin.toDouble() / 144.0 * 30.0;
+        // דקות: 360°/144 ≈ 2.5° לדקה; תרומת שניות: 2.5°/144
+        var minAngle  = dMin.toDouble() * 2.5 + dSec.toDouble() / 144.0 * 2.5;
 
         // --- 6. גיאומטריה ---
         var radius  = (width < height ? width : height) / 2 - 4;
         var hourLen = (radius.toDouble() * 0.5).toNumber();
         var minLen  = (radius.toDouble() * 0.72).toNumber();
 
-        // --- 8. מספרים 0–9 ---
+        // --- 8. מספרים 0–11 (12 שעות) ---
         var numR    = radius - 14;
-        var numbers = ["0","1","2","3","4","5","6","7","8","9"];
+        var numbers = ["0","1","2","3","4","5","6","7","8","9","10","11"];
         dc.setColor(Graphics.COLOR_RED, Graphics.COLOR_TRANSPARENT);
-        for (var i = 0; i < 10; i++) {
-            var ang = (i * 36.0 - 90.0) * (Math.PI / 180.0);
+        for (var i = 0; i < 12; i++) {
+            var ang = (i * 30.0 - 90.0) * (Math.PI / 180.0);
             var nx  = (cx.toDouble() + numR.toDouble() * Math.cos(ang)).toNumber();
             var ny  = (cy.toDouble() + numR.toDouble() * Math.sin(ang)).toNumber();
             dc.drawText(nx, ny, Graphics.FONT_XTINY, numbers[i],
