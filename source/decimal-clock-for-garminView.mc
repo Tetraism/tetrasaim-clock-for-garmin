@@ -121,22 +121,26 @@ class decimal_clock_for_garminView extends WatchUi.WatchFace {
         var decTotal = totalSec * 248832.0 / 86400.0 - 64886.0;
         if (decTotal < 0) { decTotal += 248832.0; }
         var dHour = (decTotal / 20736.0).toNumber();
+        var dMin  = ((decTotal - dHour.toDouble() * 20736.0) / 144.0).toNumber();
+        
+        // זמנים קבועים (טטריסטיים):
+        // כניסה למצב שינה: 7:72:00
+        // יציאה ממצב שינה: 0:000:000
+        var startHour = 7;
+        var startMin = 72;
+        var endHour = 0;
+        var endMin = 0;
 
-        // קריאת שעות התחלה וסיום מההגדרות
-        var startHour = Properties.getValue("NightModeStart");
-        var endHour   = Properties.getValue("NightModeEnd");
-        if (startHour == null) { startHour = 8; }
-        if (endHour   == null) { endHour   = 0; }
+        var nowUnits   = dHour * 20736 + dMin * 144;
+        
+        // כל שעה טטריסטית = 20736 יחידות, כל דקה טטריסטית = 144 יחידות
+        var startUnits = startHour * 20736 + startMin * 144;  // 7:72:00
+        var endUnits = endHour * 20736 + endMin * 144;        // 0:000:000
 
-        // השוואה: תומך בטווח חוצה חצות (למשל 8 עד 0)
-        if (startHour > endHour) {
-            return dHour >= startHour || dHour < endHour;
-        } else if (startHour < endHour) {
-            return dHour >= startHour && dHour < endHour;
-        } else {
-            // startHour == endHour → מצב לילה כל היום
-            return true;
-        }
+        // מצב השינה חוצה חצות (מ-7:72:00 עד 0:000:000 למחרת)
+        // כלומר: אם השעה >= 7:72:00 או < 0:000:000
+        // אבל 0:000:000 = 0, אז זה פשוט: אם השעה >= 7:72:00
+        return nowUnits >= startUnits;
     }
 
     function onUpdate(dc as Dc) as Void {
@@ -191,7 +195,7 @@ class decimal_clock_for_garminView extends WatchUi.WatchFace {
             var hourLen = (radius.toDouble() * 0.5).toNumber();
             var minLen  = (radius.toDouble() * 0.72).toNumber();
 
-            // --- 6. מספרים 0–11 (12 שעות) - גדולים יותר במצב לילה ---
+            // --- 6. מספרים 0–11 (12 שעות) ---
             var numR    = radius - 14;
             var numbers = ["0","1","2","3","4","5","6","7","8","9","10","11"];
             dc.setColor(Graphics.COLOR_DK_GRAY, Graphics.COLOR_TRANSPARENT);

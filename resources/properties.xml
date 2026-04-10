@@ -1,5 +1,7 @@
 <properties xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://developer.garmin.com/downloads/connect-iq/properties.xsd">
     <property id="NightModeEnabled" type="boolean">true</property>
-    <property id="NightModeStart" type="number">8</property>
-    <property id="NightModeEnd" type="number">0</property>
+    <property id="NightModeStartHour" type="number">8</property>
+    <property id="NightModeStartMinute" type="number">0</property>
+    <property id="NightModeEndHour" type="number">0</property>
+    <property id="NightModeEndMinute" type="number">0</property>
 </properties>
