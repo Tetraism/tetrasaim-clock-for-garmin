@@ -7,6 +7,8 @@ import Toybox.Time.Gregorian;
 import Toybox.ActivityMonitor;
 import Toybox.Activity;
 import Toybox.Timer;
+import Toybox.Application;
+import Toybox.Application.Properties;
 
 class decimal_clock_for_garminView extends WatchUi.WatchFace {
 
@@ -105,6 +107,38 @@ class decimal_clock_for_garminView extends WatchUi.WatchFace {
         return result;
     }
 
+    function isNightMode() as Boolean {
+        var enabled = Properties.getValue("NightModeEnabled");
+        if (enabled == null || !enabled) {
+            return false;
+        }
+
+        // חישוב השעה הטטריסטית הנוכחית
+        var clockTime = System.getClockTime();
+        var totalSec  = clockTime.hour.toDouble() * 3600.0
+                      + clockTime.min.toDouble()  * 60.0
+                      + clockTime.sec.toDouble();
+        var decTotal = totalSec * 248832.0 / 86400.0 - 64886.0;
+        if (decTotal < 0) { decTotal += 248832.0; }
+        var dHour = (decTotal / 20736.0).toNumber();
+
+        // קריאת שעות התחלה וסיום מההגדרות
+        var startHour = Properties.getValue("NightModeStart");
+        var endHour   = Properties.getValue("NightModeEnd");
+        if (startHour == null) { startHour = 8; }
+        if (endHour   == null) { endHour   = 0; }
+
+        // השוואה: תומך בטווח חוצה חצות (למשל 8 עד 0)
+        if (startHour > endHour) {
+            return dHour >= startHour || dHour < endHour;
+        } else if (startHour < endHour) {
+            return dHour >= startHour && dHour < endHour;
+        } else {
+            // startHour == endHour → מצב לילה כל היום
+            return true;
+        }
+    }
+
     function onUpdate(dc as Dc) as Void {
         var width  = dc.getWidth();
         var height = dc.getHeight();
@@ -114,6 +148,96 @@ class decimal_clock_for_garminView extends WatchUi.WatchFace {
         // --- 1. רקע שחור ---
         dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_BLACK);
         dc.clear();
+
+        // בדיקת מצב לילה
+        if (isNightMode()) {
+            // ===== מצב לילה - תצוגה מינימלית =====
+            
+            // --- 2. זמן עשרוני (12 שעות, 144 דקות, 144 שניות) ---
+            var clockTime = System.getClockTime();
+            var totalSec  = clockTime.hour.toDouble() * 3600.0
+                          + clockTime.min.toDouble()  * 60.0
+                          + clockTime.sec.toDouble();
+            
+            var decTotal = totalSec * 248832.0 / 86400.0;
+            var offsetDecimal = 64886.0;
+            decTotal = decTotal - offsetDecimal;
+            
+            if (decTotal < 0) {
+                decTotal += 248832.0;
+            }
+            var dHour = (decTotal / 20736.0).toNumber();
+            var dMin  = ((decTotal - dHour.toDouble() * 20736.0) / 144.0).toNumber();
+            var dSec  = (decTotal - dHour.toDouble() * 20736.0
+                                  - dMin.toDouble()  * 144.0).toNumber();
+
+            // --- 3. מחרוזות טקסט ---
+            var regularTime = censorString(Lang.format("$1$:$2$", [
+                clockTime.hour,
+                clockTime.min.format("%02d")
+            ]));
+
+            var decTimeStr = censorString(Lang.format("$1$:$2$", [
+                dHour,
+                dMin.format("%03d")
+            ]));
+
+            // --- 4. זוויות מחוגים ---
+            var hourAngle = dHour.toDouble() * 30.0 + dMin.toDouble() / 144.0 * 30.0;
+            var minAngle  = dMin.toDouble() * 2.5 + dSec.toDouble() / 144.0 * 2.5;
+
+            // --- 5. גיאומטריה ---
+            var radius  = (width < height ? width : height) / 2 - 4;
+            var hourLen = (radius.toDouble() * 0.5).toNumber();
+            var minLen  = (radius.toDouble() * 0.72).toNumber();
+
+            // --- 6. מספרים 0–11 (12 שעות) - גדולים יותר במצב לילה ---
+            var numR    = radius - 14;
+            var numbers = ["0","1","2","3","4","5","6","7","8","9","10","11"];
+            dc.setColor(Graphics.COLOR_DK_GRAY, Graphics.COLOR_TRANSPARENT);
+            for (var i = 0; i < 12; i++) {
+                var ang = (i * 30.0 - 90.0) * (Math.PI / 180.0);
+                var nx  = (cx.toDouble() + numR.toDouble() * Math.cos(ang)).toNumber();
+                var ny  = (cy.toDouble() + numR.toDouble() * Math.sin(ang)).toNumber();
+                dc.drawText(nx, ny, Graphics.FONT_SMALL, numbers[i],
+                            Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+            }
+
+            // --- 7. שעה טטריסטית גדולה במרכז ---
+            dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
+            dc.drawText(cx, cy + 20, Graphics.FONT_LARGE, decTimeStr,
+                        Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+
+            // --- 8. שעה רגילה מתחת לטטריסטית ---
+            dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
+            dc.drawText(cx, cy + 46, Graphics.FONT_XTINY, regularTime,
+                        Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+
+            // --- 9. מחוגים ---
+            // מחוג שעות (לבן, דק יותר)
+            var hRad = (hourAngle - 90.0) * (Math.PI / 180.0);
+            dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
+            dc.setPenWidth(3);
+            dc.drawLine(cx, cy,
+                (cx.toDouble() + hourLen.toDouble() * Math.cos(hRad)).toNumber(),
+                (cy.toDouble() + hourLen.toDouble() * Math.sin(hRad)).toNumber());
+
+            // מחוג דקות (אדום)
+            var mRad = (minAngle - 90.0) * (Math.PI / 180.0);
+            dc.setColor(Graphics.COLOR_RED, Graphics.COLOR_TRANSPARENT);
+            dc.setPenWidth(2);
+            dc.drawLine(cx, cy,
+                (cx.toDouble() + minLen.toDouble() * Math.cos(mRad)).toNumber(),
+                (cy.toDouble() + minLen.toDouble() * Math.sin(mRad)).toNumber());
+
+            // נקודת מרכז
+            dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
+            dc.fillCircle(cx, cy, 3);
+            
+            return;
+        }
+
+        // ===== מצב רגיל - תצוגה מלאה =====
 
         // --- 2. זמן עשרוני (12 שעות, 144 דקות, 144 שניות) ---
         // יממה = 12 × 144 × 144 = 248832 יחידות
