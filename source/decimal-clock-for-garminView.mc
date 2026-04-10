@@ -121,8 +121,19 @@ class decimal_clock_for_garminView extends WatchUi.WatchFace {
         var totalSec  = clockTime.hour.toDouble() * 3600.0
                       + clockTime.min.toDouble()  * 60.0
                       + clockTime.sec.toDouble();
-        // decTotal = מספר השניות-העשרוניות שחלפו מתחילת היום
+        
+        // decTotal = מספר השניות-העשרוניות שחלפו מחצות
         var decTotal = totalSec * 248832.0 / 86400.0;
+        
+        // הסטה: כאשר decTotal היה 3:18:86 (64886 יחידות), עכשיו יהיה 0:000:000
+        // 3×20736 + 18×144 + 86 = 64886
+        var offsetDecimal = 64886.0;
+        decTotal = decTotal - offsetDecimal;
+        
+        // אם התוצאה שלילית, הוסף 248832 (יממה עשרונית שלמה)
+        if (decTotal < 0) {
+            decTotal += 248832.0;
+        }
         var dHour = (decTotal / 20736.0).toNumber();                          // 144×144
         var dMin  = ((decTotal - dHour.toDouble() * 20736.0) / 144.0).toNumber();
         var dSec  = (decTotal - dHour.toDouble() * 20736.0
