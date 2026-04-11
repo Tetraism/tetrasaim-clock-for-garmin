@@ -24,8 +24,13 @@ class decimal_clock_for_garminView extends WatchUi.WatchFace {
     }
 
     function onShow() as Void {
-        _timer = new Timer.Timer();
-        (_timer as Timer.Timer).start(method(:onTick), 1000, true);
+        // ForceSecondUpdate = true  → טיימר כל שנייה גרגוריאנית (ברירת מחדל)
+        // ForceSecondUpdate = false → עדכון רק על ידי המערכת (דקה + מחווה + לחיצה)
+        var forceSeconds = Properties.getValue("ForceSecondUpdate");
+        if (forceSeconds == null || forceSeconds) {
+            _timer = new Timer.Timer();
+            (_timer as Timer.Timer).start(method(:onTick), 1000, true);
+        }
     }
 
     function onHide() as Void {
@@ -37,6 +42,16 @@ class decimal_clock_for_garminView extends WatchUi.WatchFace {
 
     function onTick() as Void {
         WatchUi.requestUpdate();
+    }
+
+    // מחווה (swipe/tap) — מעדכן את המסך כשהטיימר כבוי
+    function onGesture(evt as WatchUi.GestureEvent) as Boolean {
+        var forceSeconds = Properties.getValue("ForceSecondUpdate");
+        if (forceSeconds == null || forceSeconds) {
+            return false; // הטיימר מטפל בעדכונים
+        }
+        WatchUi.requestUpdate();
+        return true;
     }
 
     // Returns [dayOfMonth 1-30, monthIndex 0-11] for regular days,
