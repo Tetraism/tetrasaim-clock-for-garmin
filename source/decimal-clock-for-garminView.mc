@@ -223,69 +223,28 @@ class decimal_clock_for_garminView extends WatchUi.WatchFace {
                 dMin.format("%d")
             ]));
 
-            // --- 4. זוויות מחוגים ---
-            var hourAngle = dHour.toDouble() * 30.0 + dMin.toDouble() / 144.0 * 30.0;
-            var minAngle  = dMin.toDouble() * 2.5 + dSec.toDouble() / 144.0 * 2.5;
-
-            // --- 5. גיאומטריה ---
-            var radius  = (width < height ? width : height) / 2 - 4;
-            var hourLen = (radius.toDouble() * 0.5).toNumber();
-            var minLen  = (radius.toDouble() * 0.72).toNumber();
-
-            // --- 6. מספרים 0–11 (12 שעות) ---
-            var numR    = radius - 14;
-            var numbers = ["0","1","2","3","4","5","6","7","8","9","10","11"];
-            dc.setColor(Graphics.COLOR_DK_GRAY, Graphics.COLOR_TRANSPARENT);
-            for (var i = 0; i < 12; i++) {
-                var ang = (i * 30.0 - 90.0) * (Math.PI / 180.0);
-                var nx  = (cx.toDouble() + numR.toDouble() * Math.cos(ang)).toNumber();
-                var ny  = (cy.toDouble() + numR.toDouble() * Math.sin(ang)).toNumber();
-                dc.drawText(nx, ny, Graphics.FONT_SMALL, numbers[i],
-                            Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
-            }
-
             var bodyBatteryStr = censorString(getBodyBatteryBase12());
 
-            // --- 7. השעונים עוברים לחלק העליון במצב לילה ---
-            dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
-            dc.drawText(cx, cy - 44, Graphics.FONT_LARGE, decTimeStr,
-                        Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
-
+            // --- 4. שעה רגילה למעלה (קטנה מאוד, יותר גבוה, בהיר יותר) ---
             dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
-            dc.drawText(cx, cy - 18, Graphics.FONT_XTINY, regularTime,
+            dc.drawText(cx, cy - 60, Graphics.FONT_XTINY, regularTime,
                         Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
 
-            // --- 8. Body Battery בחלק התחתון, בהמרה לבסיס 12 ---
+            // --- 5. שעה טטריסטית במרכז (גדולה מאוד) ---
+            dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
+            dc.drawText(cx, cy + 5, Graphics.FONT_NUMBER_HOT, decTimeStr,
+                        Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+
+            // --- 6. Body Battery בתחתית עם סמל קטן בגודל הטקסט ---
             dc.setColor(Graphics.COLOR_GREEN, Graphics.COLOR_TRANSPARENT);
-            dc.fillCircle(cx - 20, cy + 44, 4);
-            dc.setPenWidth(2);
-            dc.drawLine(cx - 20, cy + 48, cx - 20, cy + 58);
-            dc.drawLine(cx - 26, cy + 52, cx - 14, cy + 52);
-            dc.drawLine(cx - 20, cy + 58, cx - 25, cy + 66);
-            dc.drawLine(cx - 20, cy + 58, cx - 15, cy + 66);
-            dc.drawText(cx + 4, cy + 50, Graphics.FONT_SMALL, bodyBatteryStr,
+            dc.fillCircle(cx - 10, cy + 68, 2);
+            dc.setPenWidth(1);
+            dc.drawLine(cx - 10, cy + 70, cx - 10, cy + 75);
+            dc.drawLine(cx - 13, cy + 72, cx - 7, cy + 72);
+            dc.drawLine(cx - 10, cy + 75, cx - 13, cy + 79);
+            dc.drawLine(cx - 10, cy + 75, cx - 7, cy + 79);
+            dc.drawText(cx + 2, cy + 73, Graphics.FONT_XTINY, bodyBatteryStr,
                         Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
-
-            // --- 9. מחוגים ---
-            // מחוג שעות (לבן, דק יותר)
-            var hRad = (hourAngle - 90.0) * (Math.PI / 180.0);
-            dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
-            dc.setPenWidth(3);
-            dc.drawLine(cx, cy,
-                (cx.toDouble() + hourLen.toDouble() * Math.cos(hRad)).toNumber(),
-                (cy.toDouble() + hourLen.toDouble() * Math.sin(hRad)).toNumber());
-
-            // מחוג דקות (אדום)
-            var mRad = (minAngle - 90.0) * (Math.PI / 180.0);
-            dc.setColor(Graphics.COLOR_RED, Graphics.COLOR_TRANSPARENT);
-            dc.setPenWidth(2);
-            dc.drawLine(cx, cy,
-                (cx.toDouble() + minLen.toDouble() * Math.cos(mRad)).toNumber(),
-                (cy.toDouble() + minLen.toDouble() * Math.sin(mRad)).toNumber());
-
-            // נקודת מרכז
-            dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
-            dc.fillCircle(cx, cy, 3);
             
             return;
         }
