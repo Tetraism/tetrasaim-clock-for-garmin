@@ -240,9 +240,9 @@ class decimal_clock_for_garminView extends WatchUi.WatchFace {
 
             var bodyBatteryStr = censorString(getBodyBatteryBase12());
 
-            // --- 4. שעה רגילה למעלה (קטנה מאוד, יותר גבוה, בהיר יותר) ---
+            // --- 4. שעה רגילה למעלה (קצת יותר גדולה במצב לילה) ---
             dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
-            dc.drawText(cx, cy - 60, Graphics.FONT_XTINY, regularTime,
+            dc.drawText(cx, cy - 65, Graphics.FONT_TINY, regularTime,
                         Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
 
             // --- 5. שעה טטריסטית במרכז (גדולה מאוד) ---
@@ -252,13 +252,13 @@ class decimal_clock_for_garminView extends WatchUi.WatchFace {
 
             // --- 6. Body Battery בתחתית עם סמל קטן בגודל הטקסט ---
             dc.setColor(Graphics.COLOR_GREEN, Graphics.COLOR_TRANSPARENT);
-            dc.fillCircle(cx - 10, cy + 68, 2);
+            dc.fillCircle(cx - 12, cy + 72, 3);
             dc.setPenWidth(1);
-            dc.drawLine(cx - 10, cy + 70, cx - 10, cy + 75);
-            dc.drawLine(cx - 13, cy + 72, cx - 7, cy + 72);
-            dc.drawLine(cx - 10, cy + 75, cx - 13, cy + 79);
-            dc.drawLine(cx - 10, cy + 75, cx - 7, cy + 79);
-            dc.drawText(cx + 2, cy + 73, Graphics.FONT_XTINY, bodyBatteryStr,
+            dc.drawLine(cx - 12, cy + 75, cx - 12, cy + 82);
+            dc.drawLine(cx - 16, cy + 78, cx - 8, cy + 78);
+            dc.drawLine(cx - 12, cy + 82, cx - 16, cy + 87);
+            dc.drawLine(cx - 12, cy + 82, cx - 8, cy + 87);
+            dc.drawText(cx + 2, cy + 80, Graphics.FONT_TINY, bodyBatteryStr,
                         Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
             
             return;
