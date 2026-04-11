@@ -220,7 +220,7 @@ class decimal_clock_for_garminView extends WatchUi.WatchFace {
 
             var decTimeStr = censorString(Lang.format("$1$:$2$", [
                 dHour,
-                dMin.format("%03d")
+                dMin.format("%d")
             ]));
 
             // --- 4. זוויות מחוגים ---
@@ -338,8 +338,8 @@ class decimal_clock_for_garminView extends WatchUi.WatchFace {
 
         var decTimeStr = censorString(Lang.format("$1$:$2$:$3$", [
             dHour,
-            dMin.format("%03d"),
-            dSec.format("%03d")
+            dMin.format("%d"),
+            dSec.format("%d")
         ]));
 
         // --- 5. זוויות מחוגים ---
