@@ -143,6 +143,43 @@ class decimal_clock_for_garminView extends WatchUi.WatchFace {
         return nowUnits >= startUnits;
     }
 
+    function toBase12String(value as Number) as String {
+        if (value == 0) {
+            return "0";
+        }
+
+        var digits = "0123456789AB";
+        var num = value;
+        var result = "";
+
+        while (num > 0) {
+            var digit = num % 12;
+            result = digits.substring(digit, digit + 1) + result;
+            num = num / 12;
+        }
+
+        return result;
+    }
+
+    function getBodyBatteryBase12() as String {
+        // FR55 does not expose Body Battery in this API level.
+        // Fallback to device battery percentage so the night layout still compiles.
+        var battery = System.getSystemStats().battery;
+        if (battery == null) {
+            return "--";
+        }
+
+        var scaled = ((battery.toDouble() * 144.0) / 100.0) + 0.5;
+        var bodyBatteryBase12 = scaled.toNumber();
+        if (bodyBatteryBase12 < 0) {
+            bodyBatteryBase12 = 0;
+        } else if (bodyBatteryBase12 > 144) {
+            bodyBatteryBase12 = 144;
+        }
+
+        return toBase12String(bodyBatteryBase12);
+    }
+
     function onUpdate(dc as Dc) as Void {
         var width  = dc.getWidth();
         var height = dc.getHeight();
@@ -207,14 +244,26 @@ class decimal_clock_for_garminView extends WatchUi.WatchFace {
                             Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
             }
 
-            // --- 7. שעה טטריסטית גדולה במרכז ---
+            var bodyBatteryStr = censorString(getBodyBatteryBase12());
+
+            // --- 7. השעונים עוברים לחלק העליון במצב לילה ---
             dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
-            dc.drawText(cx, cy + 20, Graphics.FONT_LARGE, decTimeStr,
+            dc.drawText(cx, cy - 44, Graphics.FONT_LARGE, decTimeStr,
                         Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
 
-            // --- 8. שעה רגילה מתחת לטטריסטית ---
             dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
-            dc.drawText(cx, cy + 46, Graphics.FONT_XTINY, regularTime,
+            dc.drawText(cx, cy - 18, Graphics.FONT_XTINY, regularTime,
+                        Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+
+            // --- 8. Body Battery בחלק התחתון, בהמרה לבסיס 12 ---
+            dc.setColor(Graphics.COLOR_GREEN, Graphics.COLOR_TRANSPARENT);
+            dc.fillCircle(cx - 20, cy + 44, 4);
+            dc.setPenWidth(2);
+            dc.drawLine(cx - 20, cy + 48, cx - 20, cy + 58);
+            dc.drawLine(cx - 26, cy + 52, cx - 14, cy + 52);
+            dc.drawLine(cx - 20, cy + 58, cx - 25, cy + 66);
+            dc.drawLine(cx - 20, cy + 58, cx - 15, cy + 66);
+            dc.drawText(cx + 4, cy + 50, Graphics.FONT_SMALL, bodyBatteryStr,
                         Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
 
             // --- 9. מחוגים ---
