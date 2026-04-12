@@ -13,11 +13,35 @@ import Toybox.Application.Properties;
 class decimal_clock_for_garminView extends WatchUi.WatchFace {
 
 
-    var _timer as Timer.Timer?;
+    var _timer              as Timer.Timer?;
+    var _stepsTimer         as Timer.Timer?;  // טיימר 10 שניות one-shot לסיום מסך צעדים
+    var _stepsRefreshTimer  as Timer.Timer?;  // טיימר חד-שנייתי לרענון מסך צעדים
+    var _lastSteps          as Number;
+    var _showBigSteps       as Boolean;
 
     function initialize() {
         WatchFace.initialize();
-        _timer = null;
+        _timer             = null;
+        _stepsTimer        = null;
+        _stepsRefreshTimer = null;
+        _lastSteps         = -1;
+        _showBigSteps      = false;
+    }
+
+    // נקרא אחרי 10 שניות — מסיים מסך צעדים
+    function onStepsTimeout() as Void {
+        _stepsTimer = null;   // הטיימר כבר סיים — אל תקרא stop() עליו
+        _showBigSteps = false;
+        if (_stepsRefreshTimer != null) {
+            (_stepsRefreshTimer as Timer.Timer).stop();
+            _stepsRefreshTimer = null;
+        }
+        WatchUi.requestUpdate();
+    }
+
+    // נקרא כל שנייה בזמן מסך הצעדים
+    function onStepsRefresh() as Void {
+        WatchUi.requestUpdate();
     }
 
     function onLayout(dc as Dc) as Void {
@@ -270,6 +294,115 @@ class decimal_clock_for_garminView extends WatchUi.WatchFace {
         dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_BLACK);
         dc.clear();
 
+        // ===== בדיקת שינוי צעדים → מסך צעדים גדול =====
+        var showStepsBig = Properties.getValue("ShowStepsBig");
+        if ((showStepsBig == null || showStepsBig) && !isNightMode() && !isBatterySaverActive()) {
+            var actInfoCheck = ActivityMonitor.getInfo();
+            if (actInfoCheck != null && actInfoCheck.steps != null) {
+                var curSteps = actInfoCheck.steps;
+                if (_lastSteps >= 0 && curSteps != _lastSteps) {
+                    // הצעדים השתנו — מפעילים תצוגה גדולה ומאפסים את הטיימרים
+                    _showBigSteps = true;
+
+                    // טיימר 10 שניות — יצירה מחדש תמיד (בטוח יותר מ-stop על טיימר מת)
+                    if (_stepsTimer != null) {
+                        (_stepsTimer as Timer.Timer).stop();
+                    }
+                    _stepsTimer = new Timer.Timer();
+                    (_stepsTimer as Timer.Timer).start(method(:onStepsTimeout), 10000, false);
+
+                    // טיימר רענון שנייתי — רק אם עוד לא רץ
+                    if (_stepsRefreshTimer == null) {
+                        _stepsRefreshTimer = new Timer.Timer();
+                        (_stepsRefreshTimer as Timer.Timer).start(method(:onStepsRefresh), 1000, true);
+                    }
+                }
+                _lastSteps = curSteps;
+            }
+        }
+
+        // ===== מסך צעדים גדול =====
+        if (_showBigSteps && !isNightMode()) {
+            var stepsNow  = ActivityMonitor.getInfo();
+            var stepsStr2 = "--";
+            var hasGoal   = false;
+            var goalPct   = 0.0;
+            if (stepsNow != null) {
+                if (stepsNow.steps != null) {
+                    stepsStr2 = stepsNow.steps.toString();
+                }
+                if (stepsNow.stepGoal != null && stepsNow.steps != null && stepsNow.stepGoal > 0) {
+                    hasGoal = true;
+                    goalPct = stepsNow.steps.toDouble() / stepsNow.stepGoal.toDouble();
+                    if (goalPct > 1.0) { goalPct = 1.0; }
+                }
+            }
+
+            // --- חישוב שתי השעות ---
+            var sClockTime = System.getClockTime();
+            var sTotalSec  = sClockTime.hour.toDouble() * 3600.0
+                           + sClockTime.min.toDouble()  * 60.0
+                           + sClockTime.sec.toDouble();
+            var sDecTotal  = sTotalSec * 248832.0 / 86400.0 - 64886.0;
+            if (sDecTotal < 0) { sDecTotal += 248832.0; }
+            var sDHour = (sDecTotal / 20736.0).toNumber();
+            var sDMin  = ((sDecTotal - sDHour.toDouble() * 20736.0) / 144.0).toNumber();
+            var sRegTime = censorString(Lang.format("$1$:$2$", [
+                sClockTime.hour, sClockTime.min.format("%02d")]));
+            var sDecTime = censorString(Lang.format("$1$:$2$", [sDHour, sDMin.format("%d")]));
+
+            // --- קשת יעד ---
+            if (hasGoal) {
+                var arcR = width / 2 - 6;
+                dc.setPenWidth(4);
+                dc.setColor(Graphics.COLOR_DK_GRAY, Graphics.COLOR_TRANSPARENT);
+                dc.drawCircle(cx, cy, arcR);
+                dc.setColor(Graphics.COLOR_DK_GREEN, Graphics.COLOR_TRANSPARENT);
+                var arcDeg = (goalPct * 360.0).toNumber();
+                if (arcDeg > 0) {
+                    dc.drawArc(cx, cy, arcR, Graphics.ARC_COUNTER_CLOCKWISE, 90, 90 - arcDeg);
+                }
+                dc.setPenWidth(1);
+            }
+
+            // --- צעדים במרכז ---
+            dc.setColor(Graphics.COLOR_GREEN, Graphics.COLOR_TRANSPARENT);
+            dc.drawText(cx, cy - 5, Graphics.FONT_NUMBER_MEDIUM, stepsStr2,
+                        Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+
+            // --- /יעד מתחת לצעדים (ירוק, אותו צבע) ---
+            if (hasGoal) {
+                var stepsNowInfo = ActivityMonitor.getInfo();
+                var goalStr = "";
+                if (stepsNowInfo != null && stepsNowInfo.stepGoal != null) {
+                    goalStr = stepsNowInfo.stepGoal.toString();
+                }
+                dc.setColor(Graphics.COLOR_GREEN, Graphics.COLOR_TRANSPARENT);
+                dc.drawText(cx, cy + 28, Graphics.FONT_SMALL,
+                            Lang.format("/$1$", [goalStr]),
+                            Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+            }
+
+            // --- שעה טטריסטית בראש ---
+            dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
+            dc.drawText(cx, cy - 68, Graphics.FONT_SMALL, sDecTime,
+                        Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+
+            // --- שעה רגילה מתחתיה ---
+            dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
+            dc.drawText(cx, cy - 50, Graphics.FONT_XTINY, sRegTime,
+                        Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+
+            // --- אחוזי השגת יעד ---
+            if (hasGoal) {
+                var pctStr = (goalPct * 100.0).toNumber().toString() + "%";
+                dc.setColor(Graphics.COLOR_DK_GREEN, Graphics.COLOR_TRANSPARENT);
+                dc.drawText(cx, cy + 82, Graphics.FONT_XTINY, pctStr,
+                            Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+            }
+            return;
+        }
+
         // בדיקת מצב לילה
         if (isNightMode()) {
             // ===== מצב לילה - תצוגה מינימלית =====
@@ -425,10 +558,18 @@ class decimal_clock_for_garminView extends WatchUi.WatchFace {
         dc.drawText(timeX, timeY, Graphics.FONT_XTINY, regularTime,
                     Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
 
-        // --- 13. תאריך עשרוני — מעל המרכז ---
-        dc.setColor(Graphics.COLOR_ORANGE, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, cy - (radius.toDouble() * 0.38).toNumber(),
-                    Graphics.FONT_SMALL, dateStr, Graphics.TEXT_JUSTIFY_CENTER);
+        // --- 13. תאריך עשרוני / סוללה — מעל המרכז ---
+        if (isBatterySaverActive()) {
+            var battPct = System.getSystemStats().battery;
+            var battStr = battPct != null ? battPct.toNumber().toString() + "%" : "--";
+            dc.setColor(Graphics.COLOR_YELLOW, Graphics.COLOR_TRANSPARENT);
+            dc.drawText(cx, cy - (radius.toDouble() * 0.38).toNumber(),
+                        Graphics.FONT_SMALL, battStr, Graphics.TEXT_JUSTIFY_CENTER);
+        } else {
+            dc.setColor(Graphics.COLOR_ORANGE, Graphics.COLOR_TRANSPARENT);
+            dc.drawText(cx, cy - (radius.toDouble() * 0.38).toNumber(),
+                        Graphics.FONT_SMALL, dateStr, Graphics.TEXT_JUSTIFY_CENTER);
+        }
 
         // --- 14. שעה עשרונית — מתחת למרכז ---
         dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);

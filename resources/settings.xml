@@ -8,4 +8,7 @@
     <setting propertyKey="BatterySaverEnabled" title="@Strings.BatterySaverEnabledTitle">
         <settingConfig type="boolean" />
     </setting>
+    <setting propertyKey="ShowStepsBig" title="@Strings.ShowStepsBigTitle">
+        <settingConfig type="boolean" />
+    </setting>
 </settings>

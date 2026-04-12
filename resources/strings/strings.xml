@@ -3,4 +3,5 @@
     <string id="NightModeTitle">Sleep Mode</string>
     <string id="ForceSecondUpdateTitle">Update Rate</string>
     <string id="BatterySaverEnabledTitle">Battery Saver</string>
+    <string id="ShowStepsBigTitle">Big Steps Display</string>
 </strings>

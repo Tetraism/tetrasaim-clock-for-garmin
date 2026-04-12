@@ -2,4 +2,5 @@
     <property id="NightModeEnabled" type="boolean">true</property>
     <property id="ForceSecondUpdate" type="boolean">true</property>
     <property id="BatterySaverEnabled" type="boolean">true</property>
+    <property id="ShowStepsBig" type="boolean">true</property>
 </properties>
