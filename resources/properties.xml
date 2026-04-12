@@ -1,4 +1,5 @@
 <properties xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://developer.garmin.com/downloads/connect-iq/properties.xsd">
     <property id="NightModeEnabled" type="boolean">true</property>
     <property id="ForceSecondUpdate" type="boolean">true</property>
+    <property id="BatterySaverEnabled" type="boolean">true</property>
 </properties>

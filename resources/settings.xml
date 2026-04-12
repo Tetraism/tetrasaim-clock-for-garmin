@@ -5,4 +5,7 @@
     <setting propertyKey="ForceSecondUpdate" title="@Strings.ForceSecondUpdateTitle">
         <settingConfig type="boolean" />
     </setting>
+    <setting propertyKey="BatterySaverEnabled" title="@Strings.BatterySaverEnabledTitle">
+        <settingConfig type="boolean" />
+    </setting>
 </settings>

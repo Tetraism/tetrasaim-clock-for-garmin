@@ -23,20 +23,61 @@ class decimal_clock_for_garminView extends WatchUi.WatchFace {
     function onLayout(dc as Dc) as Void {
     }
 
+    function isBatterySaverActive() as Boolean {
+        var enabled = Properties.getValue("BatterySaverEnabled");
+        if (enabled == null || !enabled) {
+            return false;
+        }
+
+        var battery = System.getSystemStats().battery;
+        return battery != null && battery < 30;
+    }
+
+    function shouldShowSeconds() as Boolean {
+        return !isBatterySaverActive();
+    }
+
+    function startSecondTimer() as Void {
+        if (_timer == null) {
+            _timer = new Timer.Timer();
+        } else {
+            (_timer as Timer.Timer).stop();
+        }
+
+        var interval = isBatterySaverActive() ? 30000 : 1000;
+        (_timer as Timer.Timer).start(method(:onTick), interval, true);
+    }
+
+    function stopSecondTimer() as Void {
+        if (_timer != null) {
+            (_timer as Timer.Timer).stop();
+            _timer = null;
+        }
+    }
+
     function onShow() as Void {
-        // ForceSecondUpdate = true  → טיימר כל שנייה גרגוריאנית (ברירת מחדל)
+        // ForceSecondUpdate = true  → טיימר כל שנייה ב-high power
         // ForceSecondUpdate = false → עדכון רק על ידי המערכת (דקה + מחווה + לחיצה)
         var forceSeconds = Properties.getValue("ForceSecondUpdate");
         if (forceSeconds == null || forceSeconds) {
-            _timer = new Timer.Timer();
-            (_timer as Timer.Timer).start(method(:onTick), 1000, true);
+            startSecondTimer();
         }
     }
 
     function onHide() as Void {
-        if (_timer != null) {
-            (_timer as Timer.Timer).stop();
-            _timer = null;
+        stopSecondTimer();
+    }
+
+    function onEnterSleep() as Void {
+        // ב-low power אין טיימרים, ולכן עוצרים אותם.
+        stopSecondTimer();
+    }
+
+    function onExitSleep() as Void {
+        // בחזרה ל-high power מפעילים מחדש טיימר של שנייה.
+        var forceSeconds = Properties.getValue("ForceSecondUpdate");
+        if (forceSeconds == null || forceSeconds) {
+            startSecondTimer();
         }
     }
 
@@ -44,11 +85,35 @@ class decimal_clock_for_garminView extends WatchUi.WatchFace {
         WatchUi.requestUpdate();
     }
 
+    function onPartialUpdate(dc as Dc) as Void {
+        var forceSeconds = Properties.getValue("ForceSecondUpdate");
+        if (!(forceSeconds == null || forceSeconds)) {
+            return;
+        }
+
+        var clockTime = System.getClockTime();
+
+        // במצב שינה מעדכנים רק פעם ב-5 דקות כדי לחסוך סוללה,
+        // בלי לשנות את המראה של המסך.
+        if (isNightMode()) {
+            if ((clockTime.min % 5) != 0 || clockTime.sec != 0) {
+                return;
+            }
+        } else if (isBatterySaverActive()) {
+            // במצב חיסכון סוללה מתחת ל-30% מעדכנים רק כל 30 שניות.
+            if ((clockTime.sec % 30) != 0) {
+                return;
+            }
+        }
+
+        onUpdate(dc);
+    }
+
     // מחווה (swipe/tap) — מעדכן את המסך כשהטיימר כבוי
     function onGesture(evt as WatchUi.GestureEvent) as Boolean {
         var forceSeconds = Properties.getValue("ForceSecondUpdate");
         if (forceSeconds == null || forceSeconds) {
-            return false; // הטיימר מטפל בעדכונים
+            return false; // הטיימר / partial update מטפלים בעדכונים
         }
         WatchUi.requestUpdate();
         return true;
@@ -304,17 +369,31 @@ class decimal_clock_for_garminView extends WatchUi.WatchFace {
             dateStr = censorString(Lang.format("$1$/$2$", [decDay, decMonth + 1]));
         }
 
-        var regularTime = censorString(Lang.format("$1$:$2$:$3$", [
-            clockTime.hour,
-            clockTime.min.format("%02d"),
-            clockTime.sec.format("%02d")
-        ]));
+        var regularTime;
+        var decTimeStr;
+        if (shouldShowSeconds()) {
+            regularTime = censorString(Lang.format("$1$:$2$:$3$", [
+                clockTime.hour,
+                clockTime.min.format("%02d"),
+                clockTime.sec.format("%02d")
+            ]));
 
-        var decTimeStr = censorString(Lang.format("$1$:$2$:$3$", [
-            dHour,
-            dMin.format("%d"),
-            dSec.format("%d")
-        ]));
+            decTimeStr = censorString(Lang.format("$1$:$2$:$3$", [
+                dHour,
+                dMin.format("%d"),
+                dSec.format("%d")
+            ]));
+        } else {
+            regularTime = censorString(Lang.format("$1$:$2$", [
+                clockTime.hour,
+                clockTime.min.format("%02d")
+            ]));
+
+            decTimeStr = censorString(Lang.format("$1$:$2$", [
+                dHour,
+                dMin.format("%d")
+            ]));
+        }
 
         // --- 5. זוויות מחוגים ---
         // שעות: 360°/12 = 30° לשעה; תרומת דקות: 30°/144
