@@ -273,13 +273,7 @@ class decimal_clock_for_garminView extends WatchUi.WatchFace {
             return "--";
         }
 
-        var scaled = ((battery.toDouble() * 144.0) / 100.0) + 0.5;
-        var bodyBatteryBase12 = scaled.toNumber();
-        if (bodyBatteryBase12 < 0) {
-            bodyBatteryBase12 = 0;
-        } else if (bodyBatteryBase12 > 144) {
-            bodyBatteryBase12 = 144;
-        }
+        var bodyBatteryBase12 = (battery.toDouble() / 100.0 * 144.0).toNumber();
 
         return toBase12String(bodyBatteryBase12);
     }
