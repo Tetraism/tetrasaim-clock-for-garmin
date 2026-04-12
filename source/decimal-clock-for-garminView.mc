@@ -266,15 +266,15 @@ class decimal_clock_for_garminView extends WatchUi.WatchFace {
     }
 
     function getBodyBatteryBase12() as String {
-        // FR55 does not expose Body Battery in this API level.
-        // Fallback to device battery percentage so the night layout still compiles.
-        var battery = System.getSystemStats().battery;
-        if (battery == null) {
+        if (!(Toybox has :SensorHistory) || !(Toybox.SensorHistory has :getBodyBatteryHistory)) {
             return "--";
         }
+        var iter = Toybox.SensorHistory.getBodyBatteryHistory({ :period => 1 });
+        if (iter == null) { return "--"; }
+        var sample = iter.next();
+        if (sample == null || sample.data == null) { return "--"; }
 
-        var bodyBatteryBase12 = (battery.toDouble() / 100.0 * 144.0).toNumber();
-
+        var bodyBatteryBase12 = (sample.data.toDouble() / 100.0 * 144.0).toNumber();
         return toBase12String(bodyBatteryBase12);
     }
 

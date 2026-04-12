@@ -11,7 +11,9 @@
             <iq:product id="fr645"/>
             <iq:product id="vivoactive4s"/>
         </iq:products>
-        <iq:permissions/>
+        <iq:permissions>
+            <iq:uses-permission id="SensorHistory"/>
+        </iq:permissions>
         <iq:languages/>
         <iq:barrels/>
     </iq:application>
