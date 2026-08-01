@@ -143,35 +143,80 @@ class decimal_clock_for_garminView extends WatchUi.WatchFace {
         return true;
     }
 
-    // Returns [dayOfMonth 1-30, monthIndex 0-11] for regular days,
-    // or [bonusIndex 0-4, -1] for the 5 bonus days at year-end.
-    // Calendar: 12 months x 5 weeks x 6 days = 360 days + 5 bonus days.
-    // Synced to Gregorian year: day-of-year 0-359 = months, 360+ = bonus days.
+    // ═══════════════════════════════════════════════════════════════
+    // Tetraism date system (מוחלף מהשיטה הישנה של 12x30+5).
+    // 15 חודשים × 24 יום = 360 יום + 5 ימי בונוס (6 בשנה מעוברת — "Telade").
+    // Epoch: 13/1/2026 (גרגוריאני) = 1/1/0 (טטרה).
+    // מבוסס על logic.js / logic.json (getAbsoluteDays, isLeapYear, getTetraTodayInfo).
+    // ═══════════════════════════════════════════════════════════════
+
+    const TETRA_EPOCH_G_DAY   = 13;
+    const TETRA_EPOCH_G_MONTH = 1;
+    const TETRA_EPOCH_G_YEAR  = 2026;
+    const TETRA_EPOCH_T_DAY   = 1;
+    const TETRA_EPOCH_T_MONTH = 1;
+    const TETRA_EPOCH_T_YEAR  = 0;
+    const TETRA_YEAR_OFFSET   = TETRA_EPOCH_T_YEAR - TETRA_EPOCH_G_YEAR; // -2026
+
+    // מספר ימים אבסולוטי (שלם) לפי אלגוריתם days_from_civil של Howard Hinnant.
+    // רלוונטי רק כהפרש בין שתי קריאות, ולכן אין צורך בהיסט אפוך (epoch offset).
+    function getAbsoluteDays(d as Number, m as Number, y as Number) as Number {
+        var yy = y;
+        if (m <= 2) { yy -= 1; }
+        var era = (yy >= 0) ? (yy / 400) : ((yy - 399) / 400);
+        var yoe = yy - era * 400;
+        var mm  = (m > 2) ? (m - 3) : (m + 9);
+        var doy = (153 * mm + 2) / 5 + d - 1;
+        var doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+        return era * 146097 + doe;
+    }
+
+    // שנה עשרונית מעוברת אם השנה הגרגוריאנית המקבילה מעוברת (זהה ל-isLeapYear ב-logic.js).
+    function isTetraLeapYear(tetraYear as Number) as Boolean {
+        var gYear = tetraYear - TETRA_YEAR_OFFSET;
+        return (gYear % 4 == 0 && gYear % 100 != 0) || (gYear % 400 == 0);
+    }
+
+    // Returns [dayOfMonth 1-24, monthIndex 0-14] for regular days,
+    // or [extraIndex 0-4 (0-5 בשנה מעוברת), -1] for the bonus days at year-end.
     function getDecimalDate() as Array {
         var info   = Gregorian.info(Time.now(), Time.FORMAT_SHORT);
         var gYear  = info.year;
         var gMonth = info.month;
         var gDay   = info.day;
 
-        // Compute 0-based day-of-year
-        var monthDays = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
-        var isLeap = (gYear % 4 == 0 && gYear % 100 != 0) || (gYear % 400 == 0);
-        if (isLeap) { monthDays[1] = 29; }
+        var todayAbs = getAbsoluteDays(gDay, gMonth, gYear);
+        var syncAbs  = getAbsoluteDays(TETRA_EPOCH_G_DAY, TETRA_EPOCH_G_MONTH, TETRA_EPOCH_G_YEAR);
+        var diffInDays = todayAbs - syncAbs;
 
-        var doy = gDay - 1;
-        for (var i = 0; i < gMonth - 1; i++) {
-            doy += monthDays[i];
+        var remainingDays = diffInDays + (TETRA_EPOCH_T_MONTH - 1) * 24 + (TETRA_EPOCH_T_DAY - 1);
+        var year = TETRA_EPOCH_T_YEAR;
+
+        if (remainingDays >= 0) {
+            while (true) {
+                var daysInYear = isTetraLeapYear(year) ? 366 : 365;
+                if (remainingDays >= daysInYear) {
+                    remainingDays -= daysInYear;
+                    year++;
+                } else {
+                    break;
+                }
+            }
+        } else {
+            while (remainingDays < 0) {
+                year--;
+                remainingDays += isTetraLeapYear(year) ? 366 : 365;
+            }
         }
 
-        if (doy < 360) {
-            var mIdx   = doy / 30;
-            var dayInM = doy % 30;
-            return [dayInM + 1, mIdx];
+        if (remainingDays < 360) {
+            var mIdx = remainingDays / 24;
+            var d    = (remainingDays % 24) + 1;
+            return [d, mIdx];
         }
 
-        var bonusIdx = doy - 360;
-        if (bonusIdx > 4) { bonusIdx = 4; }
-        return [bonusIdx, -1];
+        var extraIdx = remainingDays - 360;
+        return [extraIdx, -1];
     }
 
     function censorString(s as String) as String {
@@ -490,7 +535,7 @@ class decimal_clock_for_garminView extends WatchUi.WatchFace {
         // --- 4. מחרוזות טקסט ---
         var dateStr;
         if (decMonth == -1) {
-            var extraNames = ["Alpha", "Beta", "Gamma", "Delta", "Epsilon"];
+            var extraNames = ["אלפא", "בטא", "גמא", "דלתא", "אפסילון", "טלאד"];
             dateStr = extraNames[decDay];
         } else {
             dateStr = censorString(Lang.format("$1$/$2$", [decDay, decMonth + 1]));
